@@ -267,9 +267,9 @@
         }
       }
     </style>
-    <script src="config.js" defer></script>
+    <script src="frontend/config.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
-    <script src="login.js" defer></script>
+    <script src="frontend/js/login.js" defer></script>
   </head>
   <body>
     <main class="login-card">
@@ -291,6 +291,13 @@
       </p>
 
       <form id="loginForm">
+        <div id="createAccountFields" hidden>
+          <label>
+            <span>Full name</span>
+            <input id="nameInput" name="name" type="text" autocomplete="name" placeholder="Your full name" />
+          </label>
+        </div>
+
         <label>
           <span>Email address</span>
           <input id="emailInput" name="email" type="email" autocomplete="email" placeholder="you@example.com" required />
@@ -299,6 +306,14 @@
           <span>Password</span>
           <input id="passwordInput" name="password" type="password" autocomplete="current-password" placeholder="Your password" required />
         </label>
+
+        <div id="confirmPasswordWrap" hidden>
+          <label>
+            <span>Confirm password</span>
+            <input id="confirmPasswordInput" name="confirmPassword" type="password" autocomplete="new-password" placeholder="Confirm your password" />
+          </label>
+        </div>
+
         <button class="button primary" id="submitButton" type="submit">Log in with email</button>
       </form>
       <button class="button social" id="createAccountButton" type="button" style="width: 100%; margin-top: 10px;">Create an account</button>
@@ -307,9 +322,12 @@
       <div class="divider">OR CONTINUE WITH</div>
       <div class="social-buttons">
         <button class="button social" type="button" data-provider="Google">Google</button>
-        <button class="button social" type="button" data-provider="Instagram" disabled title="Instagram login is not supported by this setup">Instagram</button>
+        <button class="button social" type="button" data-provider="Instagram">Instagram</button>
+        <button class="button social" type="button" data-provider="Facebook">Facebook</button>
+        <button class="button social" type="button" data-provider="X">X</button>
       </div>
       <a class="back-home" href="index.html">← Back to home</a>
     </main>
+
   </body>
 </html>

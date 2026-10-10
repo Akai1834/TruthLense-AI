@@ -253,6 +253,29 @@
         background: rgba(255, 255, 255, 0.06);
       }
 
+      .social-provider-list {
+        display: grid;
+        gap: 8px;
+        margin-top: 4px;
+      }
+
+      .social-provider-button {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.02);
+        color: var(--text);
+        cursor: pointer;
+        font-size: 12px;
+        text-align: left;
+      }
+
+      .social-provider-button:hover {
+        border-color: rgba(183, 243, 107, 0.35);
+        background: rgba(183, 243, 107, 0.06);
+      }
+
       [hidden] {
         display: none !important;
       }
@@ -909,7 +932,26 @@
         </div>
 
         <div class="nav-actions">
-          <a class="button button-quiet" id="loginButton" href="login.html">Log in</a>
+          <div class="profile-wrap" id="loginWrap">
+            <a class="button button-primary" id="signupButton" href="login.html?mode=signup">Sign up</a>
+            <button
+              class="button button-quiet"
+              id="loginButton"
+              type="button"
+              aria-expanded="false"
+              aria-haspopup="true"
+            >
+              Log in
+            </button>
+            <div class="profile-menu" id="loginMenu" hidden>
+              <button class="menu-logout" id="googleLoginButton" type="button">Google</button>
+              <div class="social-provider-list">
+                <button class="social-provider-button" type="button" data-social-provider="Instagram">Login with Instagram</button>
+                <button class="social-provider-button" type="button" data-social-provider="Facebook">Login with Facebook</button>
+                <button class="social-provider-button" type="button" data-social-provider="X">Login with X</button>
+              </div>
+            </div>
+          </div>
           <div class="profile-wrap" id="profileWrap" hidden>
             <button
               class="profile-button"
@@ -1081,8 +1123,8 @@
 
     <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-    <script src="config.js"></script>
+    <script src="frontend/config.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="app.js"></script>
+    <script src="frontend/js/app.js"></script>
   </body>
 </html>

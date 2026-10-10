@@ -13,6 +13,10 @@
       ? supabaseLibrary.createClient(config.supabaseUrl, config.supabaseAnonKey)
       : null;
   const loginButton = document.getElementById("loginButton");
+  const loginWrap = document.getElementById("loginWrap");
+  const loginMenu = document.getElementById("loginMenu");
+  const googleLoginButton = document.getElementById("googleLoginButton");
+  const socialProviderButtons = document.querySelectorAll("[data-social-provider]");
   const profileWrap = document.getElementById("profileWrap");
   const profileButton = document.getElementById("profileButton");
   const profileMenu = document.getElementById("profileMenu");
@@ -43,15 +47,18 @@
   }
 
   function renderUser(user) {
-    loginButton.hidden = Boolean(user);
-    profileWrap.hidden = !user;
+    const isLoggedIn = Boolean(user);
+    loginWrap.hidden = isLoggedIn;
+    profileWrap.hidden = !isLoggedIn;
+    loginMenu.hidden = true;
+    loginButton.setAttribute("aria-expanded", "false");
     if (user) {
       historySection.hidden = false;
       const email = user.email || "Signed-in user";
-      const displayName = email.split("@")[0] || email;
-      document.getElementById("profileName").textContent = displayName;
+      const fullName = user.user_metadata?.full_name || user.user_metadata?.name || email.split("@")[0] || email;
+      document.getElementById("profileName").textContent = fullName;
       document.getElementById("profileEmail").textContent = email;
-      document.getElementById("avatar").textContent = displayName.charAt(0).toUpperCase();
+      document.getElementById("avatar").textContent = fullName.charAt(0).toUpperCase();
     } else {
       historySection.hidden = true;
       historyList.replaceChildren();
@@ -71,7 +78,8 @@
 
   function openFilePicker(kind) {
     if (!activeSession?.user) {
-      window.location.href = `login.html?upload=${encodeURIComponent(kind)}`;
+      const target = `login.html?upload=${encodeURIComponent(kind)}&message=login_required`;
+      window.location.href = target;
       return;
     }
     document.getElementById(kind === "image" ? "imageInput" : "videoInput").click();
@@ -166,7 +174,7 @@
   }
 
   async function loadHistory(session) {
-    if (!session?.access_token || !config.apiBaseUrl) return;
+    if (!session?.access_token || session.access_token.startsWith("social-") || !config.apiBaseUrl) return;
     historySection.hidden = false;
     historyList.replaceChildren();
     const loading = document.createElement("p");
@@ -253,6 +261,65 @@
     }
   });
 
+  loginButton.addEventListener("click", (event) => {
+    if (!supabaseClient) {
+      window.location.href = "login.html";
+      return;
+    }
+    event.preventDefault();
+    const willOpen = loginMenu.hidden;
+    loginMenu.hidden = !willOpen;
+    loginButton.setAttribute("aria-expanded", String(willOpen));
+  });
+
+  googleLoginButton.addEventListener("click", async () => {
+    if (!supabaseClient) {
+      window.location.href = "login.html";
+      return;
+    }
+    loginMenu.hidden = true;
+    loginButton.setAttribute("aria-expanded", "false");
+    try {
+      const { error } = await supabaseClient.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: new URL("index.html", window.location.href).href
+        }
+      });
+      if (error) throw error;
+    } catch (error) {
+      console.error("Google sign-in failed.", error);
+      showToast(error.message || "Google sign-in failed. Please try again.");
+    }
+  });
+
+  socialProviderButtons.forEach((button) => {
+    button.addEventListener("click", async () => {
+      const providerName = button.dataset.socialProvider;
+      const provider = { Facebook: "facebook", X: "x" }[providerName];
+      loginMenu.hidden = true;
+      loginButton.setAttribute("aria-expanded", "false");
+      if (!provider) {
+        showToast("Instagram login needs a separate Instagram OAuth integration. No social password is collected here.");
+        return;
+      }
+      if (!supabaseClient) {
+        window.location.href = "login.html";
+        return;
+      }
+      try {
+        const { error } = await supabaseClient.auth.signInWithOAuth({
+          provider,
+          options: { redirectTo: new URL("index.html", window.location.href).href }
+        });
+        if (error) throw error;
+      } catch (error) {
+        console.error(`${providerName} sign-in failed.`, error);
+        showToast(error.message || `${providerName} sign-in failed. Please try again.`);
+      }
+    });
+  });
+
   profileButton.addEventListener("click", () => {
     const willOpen = profileMenu.hidden;
     profileMenu.hidden = !willOpen;
@@ -283,7 +350,6 @@
   analyzeButton.addEventListener("click", analyzeSelectedFile);
 
   if (!supabaseClient) {
-    loginButton.href = "login.html";
     return;
   }
 
@@ -295,11 +361,13 @@
 
   supabaseClient.auth
     .getSession()
-    .then(({ data, error }) => {
+    .then(async ({ data, error }) => {
       if (error) throw error;
       activeSession = data.session;
       renderUser(data.session?.user || null);
-      if (data.session?.user) await loadHistory(data.session);
+      if (data.session?.user) {
+        await loadHistory(data.session);
+      }
       const requestedUpload = new URLSearchParams(window.location.search).get("upload");
       if (data.session?.user && ["image", "video"].includes(requestedUpload)) {
         const label = requestedUpload === "image" ? "an image" : "a video";
