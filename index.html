@@ -1,0 +1,1088 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="TruthLense AI helps you inspect images and videos for signs of AI-generated or manipulated media."
+    />
+    <meta name="theme-color" content="#0c1110" />
+    <title>TruthLense AI — See beyond the frame</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0c1110;
+        --panel: #121a18;
+        --panel-soft: #17211e;
+        --line: rgba(230, 241, 235, 0.1);
+        --text: #f3f6f2;
+        --muted: #9ba9a1;
+        --mint: #b7f36b;
+        --mint-dark: #8cc83e;
+        --serif: Georgia, "Times New Roman", serif;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        min-width: 320px;
+        margin: 0;
+        background:
+          radial-gradient(ellipse at 77% 18%, rgba(93, 135, 90, 0.13), transparent 29rem),
+          var(--bg);
+        color: var(--text);
+      }
+
+      button,
+      input {
+        font: inherit;
+      }
+
+      button,
+      a {
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      button {
+        color: inherit;
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .shell {
+        width: min(1180px, calc(100% - 48px));
+        margin: 0 auto;
+      }
+
+      .topbar {
+        position: sticky;
+        z-index: 10;
+        top: 0;
+        border-bottom: 1px solid var(--line);
+        background: rgba(12, 17, 16, 0.82);
+        backdrop-filter: blur(18px);
+      }
+
+      .nav {
+        display: flex;
+        min-height: 76px;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 11px;
+        font-size: 17px;
+        font-weight: 720;
+        letter-spacing: -0.04em;
+      }
+
+      .brand-mark {
+        display: grid;
+        width: 36px;
+        height: 36px;
+        place-items: center;
+        border: 1px solid rgba(183, 243, 107, 0.36);
+        border-radius: 12px;
+        background: rgba(183, 243, 107, 0.09);
+        color: var(--mint);
+      }
+
+      .brand-mark svg {
+        width: 20px;
+        height: 20px;
+      }
+
+      .nav-links {
+        display: flex;
+        align-items: center;
+        gap: 34px;
+        color: #c0c9c3;
+        font-size: 13px;
+      }
+
+      .nav-links a {
+        transition: color 180ms ease;
+      }
+
+      .nav-links a:hover {
+        color: var(--mint);
+      }
+
+      .nav-actions {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .button {
+        display: inline-flex;
+        min-height: 44px;
+        align-items: center;
+        justify-content: center;
+        gap: 9px;
+        padding: 0 17px;
+        border: 1px solid transparent;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 650;
+        transition:
+          transform 180ms ease,
+          background 180ms ease,
+          border-color 180ms ease;
+      }
+
+      .button:hover {
+        transform: translateY(-1px);
+      }
+
+      .button-primary {
+        background: var(--mint);
+        color: #15200f;
+      }
+
+      .button-primary:hover {
+        background: #c7ff80;
+      }
+
+      .button-quiet {
+        border-color: var(--line);
+        background: rgba(255, 255, 255, 0.025);
+        color: var(--text);
+      }
+
+      .button-quiet:hover {
+        border-color: rgba(183, 243, 107, 0.35);
+        background: rgba(183, 243, 107, 0.06);
+      }
+
+      .profile-wrap {
+        position: relative;
+      }
+
+      .profile-button {
+        display: inline-flex;
+        min-height: 42px;
+        align-items: center;
+        gap: 9px;
+        padding: 4px 10px 4px 5px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--panel);
+        cursor: pointer;
+        font-size: 13px;
+      }
+
+      .avatar {
+        display: grid;
+        width: 30px;
+        height: 30px;
+        place-items: center;
+        border-radius: 50%;
+        background: var(--mint);
+        color: #15200f;
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .profile-menu {
+        position: absolute;
+        top: calc(100% + 10px);
+        right: 0;
+        width: 230px;
+        padding: 9px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: #141c19;
+        box-shadow: 0 18px 50px rgba(0, 0, 0, 0.4);
+      }
+
+      .profile-info {
+        overflow: hidden;
+        padding: 10px;
+        border-bottom: 1px solid var(--line);
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .profile-info strong,
+      .profile-info span {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .profile-info strong {
+        font-size: 13px;
+      }
+
+      .profile-info span {
+        margin-top: 5px;
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      .menu-logout {
+        width: 100%;
+        margin-top: 6px;
+        padding: 10px;
+        border: 0;
+        border-radius: 7px;
+        background: transparent;
+        cursor: pointer;
+        text-align: left;
+        font-size: 13px;
+      }
+
+      .menu-logout:hover {
+        background: rgba(255, 255, 255, 0.06);
+      }
+
+      [hidden] {
+        display: none !important;
+      }
+
+      .hero {
+        position: relative;
+        display: grid;
+        overflow: hidden;
+        min-height: 635px;
+        align-items: center;
+        padding: 90px 0 74px;
+      }
+
+      .hero-copy {
+        position: relative;
+        z-index: 1;
+        max-width: 690px;
+        animation: rise-in 850ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 9px;
+        color: var(--mint);
+        font-size: 11px;
+        font-weight: 750;
+        letter-spacing: 0.17em;
+        text-transform: uppercase;
+      }
+
+      .eyebrow-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--mint);
+        box-shadow: 0 0 14px rgba(183, 243, 107, 0.8);
+      }
+
+      h1 {
+        max-width: 720px;
+        margin: 25px 0 19px;
+        font-family: var(--serif);
+        font-size: clamp(52px, 8vw, 92px);
+        font-weight: 400;
+        letter-spacing: -0.065em;
+        line-height: 0.99;
+        animation: text-glow 4s ease-in-out 1s infinite alternate;
+      }
+
+      h1 em {
+        color: var(--mint);
+        font-weight: 400;
+      }
+
+      .hero-description {
+        max-width: 550px;
+        margin: 0;
+        color: #aab6af;
+        font-size: clamp(15px, 1.7vw, 17px);
+        line-height: 1.8;
+        animation: rise-in 900ms 120ms both;
+      }
+
+      .upload-area {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 32px;
+        animation: rise-in 900ms 220ms both;
+      }
+
+      .upload-button {
+        min-height: 52px;
+        padding: 0 20px;
+      }
+
+      .upload-button svg {
+        width: 18px;
+        height: 18px;
+      }
+
+      .hero-note {
+        margin: 15px 0 0;
+        color: #76847b;
+        font-size: 11px;
+        line-height: 1.6;
+      }
+
+      .hero-visual {
+        position: absolute;
+        top: 75px;
+        right: -4%;
+        display: grid;
+        width: min(43vw, 460px);
+        aspect-ratio: 1;
+        place-items: center;
+        opacity: 0.77;
+        pointer-events: none;
+      }
+
+      .visual-orbit {
+        position: absolute;
+        width: 82%;
+        height: 82%;
+        border: 1px solid rgba(183, 243, 107, 0.13);
+        border-radius: 50%;
+        animation: orbit 36s linear infinite;
+      }
+
+      .visual-orbit::before,
+      .visual-orbit::after {
+        position: absolute;
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--mint);
+        content: "";
+        box-shadow: 0 0 18px rgba(183, 243, 107, 0.9);
+      }
+
+      .visual-orbit::before {
+        top: 14%;
+        left: 17%;
+      }
+
+      .visual-orbit::after {
+        right: 9%;
+        bottom: 24%;
+        width: 4px;
+        height: 4px;
+      }
+
+      .visual-orbit-two {
+        width: 62%;
+        height: 62%;
+        border-style: dashed;
+        opacity: 0.6;
+        animation-direction: reverse;
+        animation-duration: 48s;
+      }
+
+      .lens {
+        position: relative;
+        display: grid;
+        width: 39%;
+        height: 39%;
+        place-items: center;
+        border: 1px solid rgba(183, 243, 107, 0.3);
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(183, 243, 107, 0.16), rgba(183, 243, 107, 0.015) 68%);
+        box-shadow:
+          0 0 70px rgba(183, 243, 107, 0.08),
+          inset 0 0 40px rgba(183, 243, 107, 0.06);
+        animation: breathe 5s ease-in-out infinite;
+      }
+
+      .lens svg {
+        width: 53%;
+        height: 53%;
+        color: var(--mint);
+        filter: drop-shadow(0 0 15px rgba(183, 243, 107, 0.3));
+      }
+
+      .hero-grid {
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        background-image: radial-gradient(rgba(210, 229, 215, 0.13) 0.7px, transparent 0.7px);
+        background-position: 0 0;
+        background-size: 23px 23px;
+        mask-image: linear-gradient(90deg, transparent 15%, black 100%);
+        opacity: 0.15;
+      }
+
+      .upload-state {
+        display: none;
+        width: min(100%, 580px);
+        margin-top: 22px;
+        padding: 15px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: rgba(18, 26, 24, 0.88);
+        animation: rise-in 350ms ease both;
+      }
+
+      .upload-state.is-visible {
+        display: flex;
+        align-items: center;
+        gap: 13px;
+      }
+
+      .analysis-actions {
+        width: min(100%, 580px);
+        margin-top: 12px;
+      }
+
+      .analysis-button {
+        width: 100%;
+        min-height: 49px;
+      }
+
+      .analysis-button:disabled {
+        cursor: wait;
+        opacity: 0.68;
+      }
+
+      .analysis-note {
+        margin: 9px 2px 0;
+        color: var(--muted);
+        font-size: 11px;
+        line-height: 1.6;
+      }
+
+      .analysis-result {
+        width: min(100%, 580px);
+        margin-top: 12px;
+        padding: 17px;
+        border: 1px solid rgba(183, 243, 107, 0.22);
+        border-radius: 12px;
+        background: linear-gradient(145deg, rgba(23, 33, 30, 0.92), rgba(18, 26, 24, 0.88));
+        animation: rise-in 350ms ease both;
+      }
+
+      .analysis-result h2 {
+        margin: 0;
+        font-size: 15px;
+      }
+
+      .analysis-summary {
+        margin: 7px 0 15px;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.6;
+      }
+
+      .score-row {
+        display: grid;
+        grid-template-columns: 92px 1fr 48px;
+        align-items: center;
+        gap: 10px;
+        margin-top: 10px;
+        font-size: 11px;
+      }
+
+      .score-label {
+        color: #d9e1db;
+      }
+
+      .score-value {
+        color: var(--mint);
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .score-track {
+        height: 7px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.08);
+      }
+
+      .score-fill {
+        width: 0;
+        height: 100%;
+        border-radius: inherit;
+        background: var(--mint);
+        transition: width 400ms ease;
+      }
+
+      .analysis-disclaimer {
+        margin: 14px 0 0;
+        padding-top: 12px;
+        border-top: 1px solid var(--line);
+        color: #87948b;
+        font-size: 10px;
+        line-height: 1.65;
+      }
+
+      .history-section {
+        width: min(100%, 580px);
+        margin-top: 15px;
+        padding: 17px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: rgba(18, 26, 24, 0.72);
+      }
+
+      .history-section h2 {
+        margin: 0;
+        font-size: 14px;
+      }
+
+      .history-list {
+        display: grid;
+        gap: 9px;
+        margin-top: 12px;
+      }
+
+      .history-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding-top: 10px;
+        border-top: 1px solid var(--line);
+        font-size: 11px;
+      }
+
+      .history-item span {
+        color: var(--muted);
+      }
+
+      .history-item strong {
+        color: var(--mint);
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+
+      .history-empty {
+        margin: 0;
+        color: var(--muted);
+        font-size: 11px;
+        line-height: 1.6;
+      }
+
+      .preview {
+        display: grid;
+        width: 58px;
+        height: 58px;
+        flex: 0 0 58px;
+        overflow: hidden;
+        place-items: center;
+        border-radius: 8px;
+        background: var(--panel-soft);
+        color: var(--mint);
+      }
+
+      .preview img,
+      .preview video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .file-details {
+        min-width: 0;
+      }
+
+      .file-details strong,
+      .file-details span {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .file-details strong {
+        font-size: 13px;
+      }
+
+      .file-details span {
+        margin-top: 5px;
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      .section {
+        padding: 74px 0 86px;
+        border-top: 1px solid var(--line);
+      }
+
+      .section-heading {
+        max-width: 600px;
+      }
+
+      .section-heading h2 {
+        margin: 15px 0 14px;
+        font-family: var(--serif);
+        font-size: clamp(34px, 5vw, 50px);
+        font-weight: 400;
+        letter-spacing: -0.05em;
+      }
+
+      .section-heading p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.8;
+      }
+
+      .feature-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 14px;
+        margin-top: 38px;
+      }
+
+      .feature-card {
+        min-height: 190px;
+        padding: 23px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: linear-gradient(145deg, rgba(23, 33, 30, 0.86), rgba(18, 26, 24, 0.64));
+      }
+
+      .feature-icon {
+        display: grid;
+        width: 38px;
+        height: 38px;
+        place-items: center;
+        border: 1px solid rgba(183, 243, 107, 0.2);
+        border-radius: 10px;
+        background: rgba(183, 243, 107, 0.07);
+        color: var(--mint);
+      }
+
+      .feature-icon svg {
+        width: 19px;
+        height: 19px;
+      }
+
+      .feature-card h3 {
+        margin: 22px 0 8px;
+        font-size: 15px;
+      }
+
+      .feature-card p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.7;
+      }
+
+      .footer {
+        display: flex;
+        min-height: 86px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        border-top: 1px solid var(--line);
+        color: #849188;
+        font-size: 11px;
+      }
+
+      .footer .brand {
+        color: var(--text);
+        font-size: 13px;
+      }
+
+      .footer .brand-mark {
+        width: 28px;
+        height: 28px;
+        border-radius: 9px;
+      }
+
+      .footer .brand-mark svg {
+        width: 16px;
+        height: 16px;
+      }
+
+      .toast {
+        position: fixed;
+        z-index: 30;
+        right: 22px;
+        bottom: 22px;
+        max-width: min(390px, calc(100% - 44px));
+        padding: 13px 16px;
+        border: 1px solid rgba(183, 243, 107, 0.25);
+        border-radius: 10px;
+        background: #18231e;
+        box-shadow: 0 12px 35px rgba(0, 0, 0, 0.35);
+        color: #e8f0e9;
+        font-size: 12px;
+        line-height: 1.6;
+        animation: rise-in 220ms ease both;
+      }
+
+      @keyframes rise-in {
+        from {
+          opacity: 0;
+          transform: translateY(13px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes text-glow {
+        from {
+          text-shadow: 0 0 0 rgba(183, 243, 107, 0);
+        }
+        to {
+          text-shadow: 0 0 30px rgba(183, 243, 107, 0.12);
+        }
+      }
+
+      @keyframes orbit {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      @keyframes breathe {
+        50% {
+          transform: scale(1.045);
+          box-shadow:
+            0 0 90px rgba(183, 243, 107, 0.12),
+            inset 0 0 48px rgba(183, 243, 107, 0.09);
+        }
+      }
+
+      @media (max-width: 760px) {
+        .shell {
+          width: min(100% - 36px, 600px);
+        }
+
+        .nav {
+          min-height: 68px;
+        }
+
+        .nav-links {
+          gap: 18px;
+          font-size: 12px;
+        }
+
+        .hero {
+          min-height: 590px;
+          padding: 75px 0 64px;
+        }
+
+        .hero-visual {
+          top: 90px;
+          right: -20%;
+          width: min(60vw, 390px);
+          opacity: 0.42;
+        }
+
+        .hero-copy {
+          max-width: 590px;
+        }
+
+        .feature-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .feature-card {
+          min-height: 160px;
+        }
+      }
+
+      @media (max-width: 460px) {
+        .shell {
+          width: calc(100% - 30px);
+        }
+
+        .brand {
+          gap: 8px;
+          font-size: 15px;
+        }
+
+        .brand-mark {
+          width: 33px;
+          height: 33px;
+        }
+
+        .nav-links {
+          gap: 13px;
+        }
+
+        .nav-actions {
+          gap: 7px;
+        }
+
+        .nav-actions > .button {
+          min-height: 38px;
+          padding: 0 11px;
+          font-size: 12px;
+        }
+
+        .profile-button {
+          min-height: 38px;
+          padding-right: 7px;
+        }
+
+        .profile-button .profile-label {
+          display: none;
+        }
+
+        .hero {
+          min-height: 570px;
+          padding-top: 68px;
+        }
+
+        .hero-visual {
+          top: 200px;
+          right: -29%;
+          width: 80vw;
+          opacity: 0.25;
+        }
+
+        .upload-area {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 9px;
+        }
+
+        .upload-button {
+          min-height: 50px;
+          gap: 6px;
+          padding: 0 9px;
+          font-size: 12px;
+        }
+
+        .footer {
+          align-items: flex-start;
+          flex-direction: column;
+          justify-content: center;
+          padding: 19px 0;
+        }
+
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          scroll-behavior: auto !important;
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <nav class="nav shell" aria-label="Main navigation">
+        <a class="brand" href="#home" aria-label="TruthLense AI home">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M2.8 12s3.2-6.2 9.2-6.2 9.2 6.2 9.2 6.2-3.2 6.2-9.2 6.2S2.8 12 2.8 12Z" stroke="currentColor" stroke-width="1.6" />
+              <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.6" />
+              <path d="m10.8 12 1 1 2-2.2" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.4" />
+            </svg>
+          </span>
+          <span>TruthLense<span style="color: var(--mint)">AI</span></span>
+        </a>
+
+        <div class="nav-links">
+          <a href="#home">Home</a>
+          <a class="about-link" href="#about">About</a>
+        </div>
+
+        <div class="nav-actions">
+          <a class="button button-quiet" id="loginButton" href="login.html">Log in</a>
+          <div class="profile-wrap" id="profileWrap" hidden>
+            <button
+              class="profile-button"
+              id="profileButton"
+              type="button"
+              aria-expanded="false"
+              aria-haspopup="true"
+            >
+              <span class="avatar" id="avatar">U</span>
+              <span class="profile-label">Profile</span>
+              <span aria-hidden="true">⌄</span>
+            </button>
+            <div class="profile-menu" id="profileMenu" hidden>
+              <div class="profile-info">
+                <strong id="profileName"></strong>
+                <span id="profileEmail"></span>
+              </div>
+              <button class="menu-logout" id="logoutButton" type="button">Log out</button>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero shell" id="home">
+        <div class="hero-grid" aria-hidden="true"></div>
+        <div class="hero-copy">
+          <div class="eyebrow"><span class="eyebrow-dot"></span> A clearer view of digital media</div>
+          <h1>See beyond<br />the <em>frame.</em></h1>
+          <p class="hero-description">
+            Meet TruthLense AI — your first step toward understanding what you see online.
+            Upload an image or video to explore whether it may be authentic or manipulated.
+          </p>
+
+          <div class="upload-area" aria-label="Choose media to inspect">
+            <button class="button button-primary upload-button" id="imageUploadButton" type="button">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <rect x="3.5" y="4" width="17" height="16" rx="2.5" stroke="currentColor" stroke-width="1.6" />
+                <circle cx="9" cy="9" r="1.5" stroke="currentColor" stroke-width="1.5" />
+                <path d="m5 17 4.5-4 3 2.5 2.7-2 3.8 3.5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" />
+              </svg>
+              Upload an image
+            </button>
+            <button class="button button-quiet upload-button" id="videoUploadButton" type="button">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <rect x="3" y="5" width="13" height="14" rx="2.5" stroke="currentColor" stroke-width="1.6" />
+                <path d="m16 10 5-3v10l-5-3" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" />
+              </svg>
+              Upload a video
+            </button>
+          </div>
+          <input id="imageInput" type="file" accept="image/*" hidden />
+          <input id="videoInput" type="file" accept="video/*" hidden />
+          <p class="hero-note">Your selected file stays private to your session and is sent for analysis only when you choose to test it.</p>
+
+          <div class="upload-state" id="uploadState" aria-live="polite">
+            <div class="preview" id="preview"></div>
+            <div class="file-details">
+              <strong id="fileName"></strong>
+              <span id="fileStatus">Choose Test the reality to run an analysis</span>
+            </div>
+          </div>
+          <div class="analysis-actions" id="analysisActions" hidden>
+            <button class="button button-primary analysis-button" id="analyzeButton" type="button">Test the reality</button>
+            <p class="analysis-note">Analysis uses a pretrained model. Your media is processed for this request and is not saved to a public feed.</p>
+          </div>
+          <section class="analysis-result" id="analysisResult" aria-live="polite" hidden>
+            <h2 id="resultTitle">Analysis estimate</h2>
+            <p class="analysis-summary" id="resultSummary"></p>
+            <div class="score-row">
+              <span class="score-label">AI-generated</span>
+              <div class="score-track" role="meter" aria-label="AI-generated model score" aria-valuemin="0" aria-valuemax="100" id="aiMeter">
+                <div class="score-fill" id="aiScoreFill"></div>
+              </div>
+              <strong class="score-value" id="aiScore">—</strong>
+            </div>
+            <div class="score-row">
+              <span class="score-label">Real-media</span>
+              <div class="score-track" role="meter" aria-label="Real-media model score" aria-valuemin="0" aria-valuemax="100" id="realMeter">
+                <div class="score-fill" id="realScoreFill"></div>
+              </div>
+              <strong class="score-value" id="realScore">—</strong>
+            </div>
+            <p class="analysis-disclaimer" id="analysisDisclaimer"></p>
+          </section>
+          <section class="history-section" id="historySection" aria-labelledby="historyTitle" hidden>
+            <h2 id="historyTitle">Your private recent checks</h2>
+            <div class="history-list" id="historyList" aria-live="polite">
+              <p class="history-empty">Loading your private results…</p>
+            </div>
+          </section>
+        </div>
+
+        <div class="hero-visual" aria-hidden="true">
+          <div class="visual-orbit"></div>
+          <div class="visual-orbit visual-orbit-two"></div>
+          <div class="lens">
+            <svg viewBox="0 0 100 100" fill="none">
+              <path d="M9 50S23 25 50 25s41 25 41 25-14 25-41 25S9 50 9 50Z" stroke="currentColor" stroke-width="2" />
+              <circle cx="50" cy="50" r="13" stroke="currentColor" stroke-width="2" />
+              <circle cx="50" cy="50" r="5" fill="currentColor" />
+              <path d="m63 63 11 11" stroke="currentColor" stroke-linecap="round" stroke-width="3" />
+            </svg>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="about">
+        <div class="shell">
+          <div class="section-heading">
+            <div class="eyebrow"><span class="eyebrow-dot"></span> About TruthLense</div>
+            <h2>A little more context.<br />A lot more confidence.</h2>
+            <p>
+              AI-generated media can be convincing. TruthLense is being designed to help people
+              examine images and videos with care, context, and explainable signals—not guesswork.
+            </p>
+          </div>
+
+          <div class="feature-grid">
+            <article class="feature-card">
+              <div class="feature-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path d="M12 3 19 6v5c0 4.5-2.8 8-7 10-4.2-2-7-5.5-7-10V6l7-3Z" stroke="currentColor" stroke-width="1.6" />
+                  <path d="m9 12 2 2 4-4" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" />
+                </svg>
+              </div>
+              <h3>Look a little closer</h3>
+              <p>Build a habit of checking media before trusting or sharing it.</p>
+            </article>
+            <article class="feature-card">
+              <div class="feature-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.6" />
+                  <path d="m16 16 4.5 4.5M8 11h6M11 8v6" stroke="currentColor" stroke-linecap="round" stroke-width="1.6" />
+                </svg>
+              </div>
+              <h3>Made for image & video</h3>
+              <p>Choose a photo or a video as the starting point for a future analysis.</p>
+            </article>
+            <article class="feature-card">
+              <div class="feature-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path d="M4 19V5m0 14h16M7 15l4-4 3 2 5-6" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" />
+                  <path d="M16 7h3v3" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" />
+                </svg>
+              </div>
+                      <h3>Model-assisted signals</h3>
+                      <p>Explore estimated AI-generated and real-media signals. Results are not proof of authenticity.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer shell">
+      <a class="brand" href="#home">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M2.8 12s3.2-6.2 9.2-6.2 9.2 6.2 9.2 6.2-3.2 6.2-9.2 6.2S2.8 12 2.8 12Z" stroke="currentColor" stroke-width="1.6" />
+            <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.6" />
+          </svg>
+        </span>
+        TruthLense AI
+      </a>
+      <span>Thoughtful media literacy, powered by technology.</span>
+      <span>© <span id="year"></span> TruthLense AI</span>
+    </footer>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+    <script src="config.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
