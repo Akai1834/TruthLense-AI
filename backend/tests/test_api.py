@@ -86,7 +86,7 @@ def test_analysis_is_saved_for_authenticated_owner(monkeypatch) -> None:
     monkeypatch.setattr(
         backend_app,
         "get_detector",
-        AsyncMock(return_value={"model_id": "test-model"}),
+        AsyncMock(return_value={"backend": "torchvision", "model_id": "test-model"}),
     )
     monkeypatch.setattr(backend_app, "analyze_image_bytes", lambda *_args: 0.73)
     save_mock = AsyncMock(
@@ -111,3 +111,94 @@ def test_analysis_is_saved_for_authenticated_owner(monkeypatch) -> None:
     assert saved_user.user_id == "user-123"
     assert saved_record["user_id"] == "user-123"
     assert "image-content" not in response.text
+
+
+def test_configured_huggingface_detector_is_selected_for_images(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr(backend_app, "HF_TOKEN", "server-side-token")
+    monkeypatch.setattr(backend_app, "IMAGE_MODEL_PATH", tmp_path / "missing-checkpoint.pt")
+    backend_app._models.pop("image", None)
+
+    try:
+        detector = asyncio.run(backend_app.get_detector("image"))
+        assert detector["backend"] == "huggingface_api"
+        assert detector["model_id"] == "Arko007/deepfake-image-detector"
+        assert detector["endpoint"] == (
+            "https://api-inference.huggingface.co/models/Arko007/deepfake-image-detector"
+        )
+    finally:
+        backend_app._models.pop("image", None)
+
+
+def test_huggingface_api_analysis_forwards_token_and_image(monkeypatch) -> None:
+    token = "server-side-token"
+    image_bytes = b"validated-image-bytes"
+    detector = {
+        "endpoint": "https://api-inference.huggingface.co/models/example/model",
+        "model_id": "example/model",
+    }
+
+    class StubClient:
+        def __init__(self, **kwargs):
+            assert kwargs["timeout"].connect == 10
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        async def post(self, url, *, headers, content):
+            assert url == detector["endpoint"]
+            assert headers["Authorization"] == f"Bearer {token}"
+            assert headers["Content-Type"] == "application/octet-stream"
+            assert content == image_bytes
+            return httpx.Response(
+                200,
+                json=[
+                    {"label": "REAL", "score": 0.15},
+                    {"label": "FAKE", "score": 0.85},
+                ],
+            )
+
+    monkeypatch.setattr(backend_app, "HF_TOKEN", token)
+    monkeypatch.setattr(backend_app, "validate_image_bytes", lambda _data: None)
+    monkeypatch.setattr(backend_app.httpx, "AsyncClient", StubClient)
+
+    score = asyncio.run(backend_app.analyze_image_with_huggingface(image_bytes, detector))
+
+    assert score == 0.85
+
+
+def test_analysis_route_uses_configured_huggingface_image_model(monkeypatch) -> None:
+    user = backend_app.AuthenticatedUser(user_id="user-123", access_token="test-access-token")
+    backend_app.app.dependency_overrides[backend_app.require_user] = lambda: user
+    monkeypatch.setattr(
+        backend_app,
+        "get_detector",
+        AsyncMock(
+            return_value={
+                "backend": "huggingface_api",
+                "model_id": "Arko007/deepfake-image-detector",
+            }
+        ),
+    )
+    analysis_mock = AsyncMock(return_value=0.82)
+    monkeypatch.setattr(backend_app, "analyze_image_with_huggingface", analysis_mock)
+    save_mock = AsyncMock(
+        return_value={"id": "result-hf", "created_at": "2026-10-08T00:00:00Z"}
+    )
+    monkeypatch.setattr(backend_app, "save_analysis", save_mock)
+
+    try:
+        client = TestClient(backend_app.app)
+        response = client.post(
+            "/api/analyze",
+            files={"file": ("sample.png", b"image-content", "image/png")},
+        )
+    finally:
+        backend_app.app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()["positive_percent"] == 82.0
+    assert response.json()["model_id"] == "Arko007/deepfake-image-detector"
+    analysis_mock.assert_awaited_once()

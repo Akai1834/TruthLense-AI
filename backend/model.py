@@ -63,18 +63,8 @@ def score_image(
     image = image.convert("RGB")
     image.thumbnail((2048, 2048))
 
-    if backend == "torchvision":
-        inputs = evaluation_transform()(image).unsqueeze(0).to(device)
-        with torch_module.inference_mode():
-            logits = model(inputs)[0]
-            probabilities = torch_module.softmax(logits, dim=-1).cpu().tolist()
-    else:
-        inputs = processor(images=image, return_tensors="pt")
-        with torch_module.inference_mode():
-            logits = model(**inputs).logits[0]
-            probabilities = torch_module.softmax(logits, dim=-1).cpu().tolist()
+    if backend != "torchvision":
         labels = {int(index): str(label) for index, label in model.config.id2label.items()}
-
     if labels is None:
         raise ValueError("The detector must provide its class labels.")
 
@@ -108,4 +98,15 @@ def score_image(
     ]
     if len(labels) != 2 or len(positive_indexes) != 1 or len(real_indexes) != 1:
         raise ValueError("Model must have exactly one positive class and one real class.")
+
+    if backend == "torchvision":
+        inputs = evaluation_transform()(image).unsqueeze(0).to(device)
+        with torch_module.inference_mode():
+            logits = model(inputs)[0]
+            probabilities = torch_module.softmax(logits, dim=-1).cpu().tolist()
+    else:
+        inputs = processor(images=image, return_tensors="pt")
+        with torch_module.inference_mode():
+            logits = model(**inputs).logits[0]
+            probabilities = torch_module.softmax(logits, dim=-1).cpu().tolist()
     return float(probabilities[positive_indexes[0]]), str(positive_name)

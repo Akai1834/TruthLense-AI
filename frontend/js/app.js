@@ -133,7 +133,7 @@
       ? `Estimated from ${result.frames_analyzed} sampled video frames.`
       : "Estimated from the selected image.";
     document.querySelector("#aiMeter").previousElementSibling.textContent =
-      isVideo ? "Manipulated video" : "AI-generated";
+      isVideo ? "Manipulated video" : "Deepfake image";
     document.querySelector("#realMeter").previousElementSibling.textContent =
       isVideo ? "Unmanipulated video" : "Real-media";
     document.getElementById("aiScore").textContent = `${positiveScore}%`;
@@ -162,7 +162,7 @@
       const label = document.createElement("span");
       const score = document.createElement("strong");
       const mediaLabel =
-        record.media_type === "video" ? "Manipulated video" : "AI-generated image";
+        record.media_type === "video" ? "Manipulated video" : "Deepfake image";
       const date = new Date(record.created_at);
       label.textContent = `${mediaLabel} · ${
         Number.isNaN(date.getTime()) ? "Date unavailable" : date.toLocaleString()

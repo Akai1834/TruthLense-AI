@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import io
 import logging
+import math
 import os
 import tempfile
 from collections.abc import AsyncIterator
@@ -28,6 +29,12 @@ MAX_IMAGE_PIXELS = 40_000_000
 MAX_VIDEO_SECONDS = 300
 VIDEO_FRAME_SAMPLES = 8
 DEFAULT_MODEL_ID = "haywoodsloan/ai-image-detector-deploy"
+HF_IMAGE_MODEL_ID = os.getenv(
+    "HF_IMAGE_MODEL_ID",
+    "Arko007/deepfake-image-detector",
+)
+HF_INFERENCE_URL = "https://api-inference.huggingface.co/models"
+HF_TOKEN = os.getenv("HF_TOKEN", "")
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 IMAGE_MODEL_PATH = Path(
     os.getenv("IMAGE_MODEL_PATH", str(PROJECT_ROOT / "artifacts" / "image_detector.pt"))
@@ -149,6 +156,16 @@ async def get_detector(media_type: str) -> dict[str, Any]:
         if cached is not None:
             return cached
 
+        checkpoint_path = IMAGE_MODEL_PATH if media_type == "image" else VIDEO_MODEL_PATH
+        if media_type == "image" and HF_TOKEN and not checkpoint_path.is_file():
+            bundle = {
+                "backend": "huggingface_api",
+                "model_id": HF_IMAGE_MODEL_ID,
+                "endpoint": f"{HF_INFERENCE_URL}/{HF_IMAGE_MODEL_ID}",
+            }
+            _models[media_type] = bundle
+            return bundle
+
         try:
             import torch
         except ImportError as error:
@@ -157,9 +174,7 @@ async def get_detector(media_type: str) -> dict[str, Any]:
                 status_code=503,
                 detail="The analysis model dependencies are not installed on the server.",
             ) from error
-
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        checkpoint_path = IMAGE_MODEL_PATH if media_type == "image" else VIDEO_MODEL_PATH
         if media_type == "video" and not checkpoint_path.is_file():
             raise HTTPException(
                 status_code=503,
@@ -269,6 +284,117 @@ def analyze_image_bytes(data: bytes, detector: dict[str, Any], media_type: str) 
             status_code=415,
             detail="The selected file is not a supported image.",
         ) from error
+
+
+def parse_huggingface_image_scores(payload: Any) -> float:
+    if not isinstance(payload, list) or len(payload) != 2:
+        raise HTTPException(
+            status_code=503,
+            detail="The Hugging Face detector returned an unsupported result.",
+        )
+
+    fake_labels = {"fake", "deepfake", "manipulated", "ai_generated", "synthetic"}
+    real_labels = {"real", "authentic", "genuine"}
+    scores: dict[str, float] = {}
+    for item in payload:
+        if not isinstance(item, dict):
+            break
+        label = item.get("label")
+        score = item.get("score")
+        if not isinstance(label, str) or isinstance(score, bool) or not isinstance(score, (int, float)):
+            break
+        normalized_label = label.strip().lower().replace("-", "_").replace(" ", "_")
+        if normalized_label in fake_labels:
+            category = "fake"
+        elif normalized_label in real_labels:
+            category = "real"
+        else:
+            break
+        if category in scores or not math.isfinite(score) or not 0 <= score <= 1:
+            break
+        scores[category] = float(score)
+    else:
+        if set(scores) == {"fake", "real"}:
+            return scores["fake"]
+
+    raise HTTPException(
+        status_code=503,
+        detail="The Hugging Face detector did not return one fake and one real score.",
+    )
+
+
+def validate_image_bytes(data: bytes) -> None:
+    try:
+        with Image.open(io.BytesIO(data)) as image:
+            image.load()
+    except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as error:
+        raise HTTPException(
+            status_code=415,
+            detail="The selected file is not a supported image.",
+        ) from error
+
+
+async def analyze_image_with_huggingface(data: bytes, detector: dict[str, Any]) -> float:
+    validate_image_bytes(data)
+    try:
+        async with httpx.AsyncClient(
+            timeout=httpx.Timeout(120, connect=10)
+        ) as client:
+            response = await client.post(
+                detector["endpoint"],
+                headers={
+                    "Authorization": f"Bearer {HF_TOKEN}",
+                    "Content-Type": "application/octet-stream",
+                },
+                content=data,
+            )
+    except httpx.RequestError as error:
+        logger.warning(
+            "Could not reach Hugging Face model %s: %s",
+            detector["model_id"],
+            error,
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Could not reach the Hugging Face image detector.",
+        ) from error
+
+    if response.status_code in (401, 403):
+        logger.error("Hugging Face rejected access to model %s.", detector["model_id"])
+        raise HTTPException(
+            status_code=503,
+            detail="Hugging Face rejected the configured token or model access.",
+        )
+    if response.status_code == 429:
+        raise HTTPException(
+            status_code=503,
+            detail="The Hugging Face image detector is rate-limited. Please try again later.",
+        )
+    if response.status_code == 503:
+        raise HTTPException(
+            status_code=503,
+            detail="The Hugging Face image detector is loading or temporarily unavailable. Please retry shortly.",
+        )
+    if response.status_code != 200:
+        logger.error(
+            "Hugging Face model %s returned HTTP %s.",
+            detector["model_id"],
+            response.status_code,
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="The Hugging Face image detector request failed.",
+        )
+
+    try:
+        payload = response.json()
+    except ValueError as error:
+        logger.error("Hugging Face model %s returned invalid JSON.", detector["model_id"])
+        raise HTTPException(
+            status_code=503,
+            detail="The Hugging Face image detector returned an invalid response.",
+        ) from error
+    return parse_huggingface_image_scores(payload)
 
 
 def analyze_video_bytes(
@@ -407,8 +533,20 @@ async def health() -> dict[str, Any]:
     return {
         "status": "ok",
         "image_model": {
-            "state": "trained" if IMAGE_MODEL_PATH.is_file() else "pretrained fallback",
-            "path": str(IMAGE_MODEL_PATH) if IMAGE_MODEL_PATH.is_file() else MODEL_ID,
+            "state": (
+                "trained"
+                if IMAGE_MODEL_PATH.is_file()
+                else "Hugging Face Inference API"
+                if HF_TOKEN
+                else "pretrained fallback"
+            ),
+            "path": (
+                str(IMAGE_MODEL_PATH)
+                if IMAGE_MODEL_PATH.is_file()
+                else HF_IMAGE_MODEL_ID
+                if HF_TOKEN
+                else MODEL_ID
+            ),
         },
         "video_model": {
             "state": "trained" if VIDEO_MODEL_PATH.is_file() else "not trained",
@@ -489,12 +627,15 @@ async def analyze_media(
             )
             score_label = "manipulated"
         else:
-            positive_score = await run_in_threadpool(
-                analyze_image_bytes,
-                data,
-                detector,
-                media_type,
-            )
+            if detector["backend"] == "huggingface_api":
+                positive_score = await analyze_image_with_huggingface(data, detector)
+            else:
+                positive_score = await run_in_threadpool(
+                    analyze_image_bytes,
+                    data,
+                    detector,
+                    media_type,
+                )
             analyzed_frames = 1
             score_label = "ai_generated"
 

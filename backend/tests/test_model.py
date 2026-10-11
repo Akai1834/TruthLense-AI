@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from fastapi import HTTPException
 import pytest
 import torch
 from PIL import Image
 
+from backend.app import parse_huggingface_image_scores
 from backend.model import score_image
 
 
@@ -49,3 +51,23 @@ def test_detector_with_ambiguous_labels_is_rejected() -> None:
             torch_module=torch,
             device=torch.device("cpu"),
         )
+
+
+def test_huggingface_fake_score_is_returned_regardless_of_label_order() -> None:
+    assert parse_huggingface_image_scores(
+        [
+            {"label": "REAL", "score": 0.2},
+            {"label": "FAKE", "score": 0.8},
+        ]
+    ) == 0.8
+
+
+def test_huggingface_scores_reject_unknown_labels() -> None:
+    with pytest.raises(HTTPException) as exc_info:
+        parse_huggingface_image_scores(
+            [
+                {"label": "LABEL_0", "score": 0.2},
+                {"label": "LABEL_1", "score": 0.8},
+            ]
+        )
+    assert "one fake and one real score" in exc_info.value.detail
