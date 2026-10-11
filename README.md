@@ -54,9 +54,23 @@ Open `http://localhost:5500`. The backend downloads the public `Arko007/deepfake
 
 ## Training data
 
-Training requires labeled data; **no model has been trained yet**. Do not put dataset archives or checkpoints inside `.venv`.
+Training requires both labeled classes; **no model has been trained yet**. Do not put dataset archives or checkpoints inside `.venv`.
 
 ### AI-generated image detector
+
+The CelebA data currently in `backend/training/dataset` contains real face photos only. Prepare its official train and validation partitions as the detector's real class (partition 2 is excluded as a held-out test split):
+
+```powershell
+.\.venv\Scripts\python.exe -m backend.training.prepare_celeba --dataset-dir backend\training\dataset --output-dir datasets\image_images
+```
+
+This accepts the provided `archive.zip` directly or extracted CelebA images. Then add **labeled AI-generated images** from an appropriately licensed dataset to `datasets/image_images/train/ai_generated` and `datasets/image_images/validation/ai_generated`. Keep train and validation sources disjoint, and do not place AI-generated images in the real folders. CelebA is face-focused real data, so results trained with it may not generalize well to landscapes, illustrations, or other image domains.
+
+Only after both classes exist in both splits, train and register the local checkpoint:
+
+```powershell
+.\.venv\Scripts\python.exe -m backend.training.train_detector --modality image --data-dir datasets\image_images --output artifacts\image_detector.pt --epochs 3 --batch-size 4
+```
 
 Download the official [GenImage dataset](https://github.com/GenImage-Dataset/GenImage) or a smaller labeled subset. Its documented layout has generator folders with `train/ai`, `train/nature`, `val/ai`, and `val/nature`. The dataset uses a **non-commercial CC BY-NC-SA 4.0 license with additional dataset terms**; check those terms before using it beyond non-commercial academic/research work. Keep the source archives/data outside Git.
 
