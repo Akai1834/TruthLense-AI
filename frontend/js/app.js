@@ -246,7 +246,7 @@
         error.name === "AbortError"
           ? "Analysis timed out. Try again with a shorter video."
           : error.message || "Could not reach the analysis service.";
-      fileStatus.textContent = "Analysis could not be completed";
+      fileStatus.textContent = message;
       showToast(message);
     } finally {
       analyzeButton.disabled = false;

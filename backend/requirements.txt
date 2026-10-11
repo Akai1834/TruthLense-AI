@@ -1,8 +1,10 @@
 fastapi>=0.115,<1
+huggingface_hub>=0.28,<1
 httpx>=0.28,<1
 opencv-python-headless>=4.10,<5
 pillow>=11,<13
 python-multipart>=0.0.20,<1
+timm>=1.0,<2
 torch>=2.6
 torchvision>=0.21
 transformers>=4.48,<5

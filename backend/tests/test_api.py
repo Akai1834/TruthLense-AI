@@ -116,15 +116,22 @@ def test_analysis_is_saved_for_authenticated_owner(monkeypatch) -> None:
 def test_configured_huggingface_detector_is_selected_for_images(monkeypatch, tmp_path) -> None:
     monkeypatch.setattr(backend_app, "HF_TOKEN", "server-side-token")
     monkeypatch.setattr(backend_app, "IMAGE_MODEL_PATH", tmp_path / "missing-checkpoint.pt")
+    loaded_model = object()
+
+    def load_model(model_id, _device, token):
+        assert model_id == "Arko007/deepfake-image-detector"
+        assert token == "server-side-token"
+        return loaded_model, 380
+
+    monkeypatch.setattr(backend_app, "open_huggingface_deepfake_model", load_model)
     backend_app._models.pop("image", None)
 
     try:
         detector = asyncio.run(backend_app.get_detector("image"))
-        assert detector["backend"] == "huggingface_api"
+        assert detector["backend"] == "timm_deepfake"
+        assert detector["model"] is loaded_model
+        assert detector["image_size"] == 380
         assert detector["model_id"] == "Arko007/deepfake-image-detector"
-        assert detector["endpoint"] == (
-            "https://api-inference.huggingface.co/models/Arko007/deepfake-image-detector"
-        )
     finally:
         backend_app._models.pop("image", None)
 
@@ -177,13 +184,12 @@ def test_analysis_route_uses_configured_huggingface_image_model(monkeypatch) -> 
         "get_detector",
         AsyncMock(
             return_value={
-                "backend": "huggingface_api",
+                "backend": "timm_deepfake",
                 "model_id": "Arko007/deepfake-image-detector",
             }
         ),
     )
-    analysis_mock = AsyncMock(return_value=0.82)
-    monkeypatch.setattr(backend_app, "analyze_image_with_huggingface", analysis_mock)
+    monkeypatch.setattr(backend_app, "analyze_image_bytes", lambda *_args: 0.82)
     save_mock = AsyncMock(
         return_value={"id": "result-hf", "created_at": "2026-10-08T00:00:00Z"}
     )
@@ -201,4 +207,3 @@ def test_analysis_route_uses_configured_huggingface_image_model(monkeypatch) -> 
     assert response.status_code == 200
     assert response.json()["positive_percent"] == 82.0
     assert response.json()["model_id"] == "Arko007/deepfake-image-detector"
-    analysis_mock.assert_awaited_once()

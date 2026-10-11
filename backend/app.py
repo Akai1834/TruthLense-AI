@@ -19,7 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image, UnidentifiedImageError
 from starlette.concurrency import run_in_threadpool
 
-from .model import open_model_checkpoint, score_image
+from .model import open_huggingface_deepfake_model, open_model_checkpoint, score_image
 
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 logger = logging.getLogger("truthlense")
@@ -33,7 +33,6 @@ HF_IMAGE_MODEL_ID = os.getenv(
     "HF_IMAGE_MODEL_ID",
     "Arko007/deepfake-image-detector",
 )
-HF_INFERENCE_URL = "https://api-inference.huggingface.co/models"
 HF_TOKEN = os.getenv("HF_TOKEN", "")
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 IMAGE_MODEL_PATH = Path(
@@ -157,15 +156,6 @@ async def get_detector(media_type: str) -> dict[str, Any]:
             return cached
 
         checkpoint_path = IMAGE_MODEL_PATH if media_type == "image" else VIDEO_MODEL_PATH
-        if media_type == "image" and HF_TOKEN and not checkpoint_path.is_file():
-            bundle = {
-                "backend": "huggingface_api",
-                "model_id": HF_IMAGE_MODEL_ID,
-                "endpoint": f"{HF_INFERENCE_URL}/{HF_IMAGE_MODEL_ID}",
-            }
-            _models[media_type] = bundle
-            return bundle
-
         try:
             import torch
         except ImportError as error:
@@ -210,6 +200,39 @@ async def get_detector(media_type: str) -> dict[str, Any]:
                 "device": device,
                 "labels": labels,
                 "model_id": f"torchvision/efficientnet_b0:{checkpoint_path.name}",
+            }
+        elif media_type == "image":
+            try:
+                model, image_size = await run_in_threadpool(
+                    open_huggingface_deepfake_model,
+                    HF_IMAGE_MODEL_ID,
+                    device,
+                    HF_TOKEN or None,
+                )
+            except ImportError as error:
+                logger.exception("Install the Hugging Face deepfake model dependencies.")
+                raise HTTPException(
+                    status_code=503,
+                    detail="The deepfake detector dependencies are missing. Install backend/requirements.txt.",
+                ) from error
+            except (OSError, RuntimeError, ValueError) as error:
+                logger.exception("Could not load Hugging Face model %s.", HF_IMAGE_MODEL_ID)
+                raise HTTPException(
+                    status_code=503,
+                    detail=(
+                        "Could not load the deepfake model. Check backend internet access, "
+                        "model availability, and available memory, then retry."
+                    ),
+                ) from error
+            bundle = {
+                "backend": "timm_deepfake",
+                "processor": None,
+                "model": model,
+                "torch": torch,
+                "device": device,
+                "labels": {0: "ai_generated", 1: "real"},
+                "image_size": image_size,
+                "model_id": HF_IMAGE_MODEL_ID,
             }
         else:
             try:
@@ -264,6 +287,7 @@ def classify_image(image: Image.Image, detector: dict[str, Any], media_type: str
         torch_module=detector["torch"],
         device=detector["device"],
         labels=detector["labels"],
+        image_size=detector.get("image_size", 380),
     )
     expected_label = "ai_generated" if media_type == "image" else "manipulated"
     if score_label != expected_label:
@@ -536,16 +560,12 @@ async def health() -> dict[str, Any]:
             "state": (
                 "trained"
                 if IMAGE_MODEL_PATH.is_file()
-                else "Hugging Face Inference API"
-                if HF_TOKEN
-                else "pretrained fallback"
+                else "Hugging Face model (downloads on first analysis)"
             ),
             "path": (
                 str(IMAGE_MODEL_PATH)
                 if IMAGE_MODEL_PATH.is_file()
                 else HF_IMAGE_MODEL_ID
-                if HF_TOKEN
-                else MODEL_ID
             ),
         },
         "video_model": {
@@ -627,15 +647,12 @@ async def analyze_media(
             )
             score_label = "manipulated"
         else:
-            if detector["backend"] == "huggingface_api":
-                positive_score = await analyze_image_with_huggingface(data, detector)
-            else:
-                positive_score = await run_in_threadpool(
-                    analyze_image_bytes,
-                    data,
-                    detector,
-                    media_type,
-                )
+            positive_score = await run_in_threadpool(
+                analyze_image_bytes,
+                data,
+                detector,
+                media_type,
+            )
             analyzed_frames = 1
             score_label = "ai_generated"
 

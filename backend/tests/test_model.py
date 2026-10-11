@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from fastapi import HTTPException
+import json
+
 import pytest
 import torch
 from PIL import Image
 
-from backend.app import parse_huggingface_image_scores
-from backend.model import score_image
+from backend.model import open_huggingface_deepfake_model, score_image
 
 
 class ArtificialDetector:
@@ -53,21 +53,57 @@ def test_detector_with_ambiguous_labels_is_rejected() -> None:
         )
 
 
-def test_huggingface_fake_score_is_returned_regardless_of_label_order() -> None:
-    assert parse_huggingface_image_scores(
-        [
-            {"label": "REAL", "score": 0.2},
-            {"label": "FAKE", "score": 0.8},
-        ]
-    ) == 0.8
+class TimmDeepfakeDetector:
+    def __call__(self, _inputs):
+        return torch.tensor([[2.0]])
 
 
-def test_huggingface_scores_reject_unknown_labels() -> None:
-    with pytest.raises(HTTPException) as exc_info:
-        parse_huggingface_image_scores(
-            [
-                {"label": "LABEL_0", "score": 0.2},
-                {"label": "LABEL_1", "score": 0.8},
-            ]
-        )
-    assert "one fake and one real score" in exc_info.value.detail
+def test_timm_deepfake_model_maps_sigmoid_score_to_ai_generated() -> None:
+    score, label = score_image(
+        Image.new("RGB", (16, 16)),
+        backend="timm_deepfake",
+        processor=None,
+        model=TimmDeepfakeDetector(),
+        torch_module=torch,
+        device=torch.device("cpu"),
+        labels={0: "ai_generated", 1: "real"},
+        image_size=380,
+    )
+
+    assert label == "ai_generated"
+    assert score == pytest.approx(0.8808, abs=0.0001)
+
+
+def test_huggingface_checkpoint_loader_builds_configured_timm_model(monkeypatch, tmp_path) -> None:
+    import timm
+    import huggingface_hub
+
+    model_id = "test/deepfake-detector"
+    config_path = tmp_path / "config.json"
+    weights_path = tmp_path / "pytorch_model.bin"
+    config_path.write_text(
+        json.dumps({"model_name": "mobilenetv3_small_050", "image_size": 64}),
+        encoding="utf-8",
+    )
+    source_model = timm.create_model(
+        "mobilenetv3_small_050",
+        pretrained=False,
+        num_classes=1,
+    )
+    torch.save(source_model.state_dict(), weights_path)
+    downloaded = {"config.json": str(config_path), "pytorch_model.bin": str(weights_path)}
+
+    def download(repo_id, filename, *, token):
+        assert repo_id == model_id
+        assert token is None
+        return downloaded[filename]
+
+    monkeypatch.setattr(huggingface_hub, "hf_hub_download", download)
+    model, image_size = open_huggingface_deepfake_model(
+        model_id,
+        torch.device("cpu"),
+    )
+
+    assert image_size == 64
+    assert model.training is False
+    assert set(model.state_dict()) == set(source_model.state_dict())

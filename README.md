@@ -47,11 +47,10 @@ Backend:
 $env:SUPABASE_URL = "https://YOUR-PROJECT.supabase.co"
 $env:SUPABASE_ANON_KEY = "YOUR_SUPABASE_PUBLISHABLE_OR_ANON_KEY"
 $env:ALLOWED_ORIGINS = "http://localhost:5500,http://127.0.0.1:5500"
-$env:HF_TOKEN = "YOUR_ROTATED_HUGGING_FACE_TOKEN"
 .\.venv\Scripts\python.exe -m uvicorn backend.app:app --host 127.0.0.1 --port 8000
 ```
 
-Open `http://localhost:5500`. The Hugging Face token is read only by the backend and must never be placed in `frontend/config.js`, HTML, or browser JavaScript. When `HF_TOKEN` is configured, image requests use the `Arko007/deepfake-image-detector` Inference API unless a trained local image checkpoint exists; that checkpoint takes precedence. You can override the Hugging Face repo with `HF_IMAGE_MODEL_ID`. Without `HF_TOKEN`, image analysis keeps using the pretrained fallback. Keep other real server-only configuration in environment variables; never use a Supabase service-role key in the frontend or inference service. Video analysis returns a clear not-trained response until a video checkpoint exists.
+Open `http://localhost:5500`. The backend downloads the public `Arko007/deepfake-image-detector` PyTorch checkpoint on the first image analysis (about 90 MB) and caches it for later requests. No Hugging Face token is required for this public repository; if you use a gated model, set `HF_TOKEN` only in the backend environment. Never put tokens in `frontend/config.js`, HTML, or browser JavaScript. You can override the model repo with `HF_IMAGE_MODEL_ID`. A trained local image checkpoint takes precedence. Keep other server-only configuration in environment variables; never use a Supabase service-role key in the frontend or inference service. Video analysis returns a clear not-trained response until a video checkpoint exists.
 
 ## Training data
 
@@ -89,7 +88,7 @@ Training uses ImageNet-pretrained EfficientNet-B0 weights, downloaded by torchvi
 
 `POST /api/analyze` requires a valid signed-in Supabase token and returns model estimates. Each result is persisted to the authenticated user's own row in Supabase and displayed in that user's private history. The API does not store original media; video decoding uses a temporary file removed after processing.
 
-The configured Hugging Face image detector is [`Arko007/deepfake-image-detector`](https://huggingface.co/Arko007/deepfake-image-detector), a research/experimental EfficientNetV2-S model intended for image-level fake/real classification. Its model card notes missing training-data provenance and possible poor performance on full-frame images or unseen domains. If unavailable or if its response labels are unsupported, analysis fails clearly rather than silently substituting another model. Without a Hugging Face token, the fallback image detector is [`haywoodsloan/ai-image-detector-deploy`](https://huggingface.co/haywoodsloan/ai-image-detector-deploy), licensed Apache-2.0. The trained image and video-frame models are separate. Scores are uncalibrated model outputs, not verified probabilities; compression, unseen generators, editing, and distribution shift can cause errors. Never use this output alone for high-impact decisions.
+The image detector is [`Arko007/deepfake-image-detector`](https://huggingface.co/Arko007/deepfake-image-detector), an EfficientNetV2-S PyTorch checkpoint loaded locally with `timm`. Its model card describes it as experimental, notes missing training-data provenance, and warns performance may degrade on full-frame images or unseen domains. The checkpoint is downloaded from Hugging Face on first use, so the backend needs network access and enough disk space for the model cache. The trained image and video-frame models are separate. Scores are model estimates, not proof of authenticity; compression, unseen generators, editing, and distribution shift can cause errors. Never use this output alone for high-impact decisions.
 
 Uploads are limited to 25 MB; videos are limited to five minutes and eight sampled frames. For public deployment, use HTTPS, an HTTPS API URL in `config.js`, exact production CORS origins, rate limiting, and platform body-size/time limits. For production ML training, use a GPU host—this development PC has no CUDA-capable GPU.
 #
